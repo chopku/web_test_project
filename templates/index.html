@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Тестирование</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <h1>Тест</h1>
+
+  <label for="partSelect">Выберите раздел:</label>
+  <select id="partSelect"></select>
+
+  <div>
+    <button onclick="showOneQuestionPerPart()">1 вопрос из каждого раздела</button>
+    <button onclick="showAllSorted()">Все вопросы выбранного раздела по порядку</button>
+  </div>
+
+  <form id="testForm"></form>
+  <button onclick="checkAnswers()" style="display:none" id="submitBtn">Проверить ответы</button>
+  <div id="result"></div>
+
+  <script>
+    const form = document.getElementById("testForm");
+    const submitBtn = document.getElementById("submitBtn");
+    const resultDiv = document.getElementById("result");
+    const partSelect = document.getElementById("partSelect");
+    let correctAnswerMap = {};
+    let fullData = [];
+
+    function showSkeletons() {
+      form.innerHTML = "";
+      for (let i = 0; i < 5; i++) {
+        const skel = document.createElement("div");
+        skel.className = "skeleton";
+        form.appendChild(skel);
+      }
+    }
+
+    function populateSelect(data) {
+      partSelect.innerHTML = "";
+      data.forEach((part, index) => {
+        const option = document.createElement("option");
+        option.value = index;
+        option.textContent = part.name || `Раздел ${index + 1}`;
+        partSelect.appendChild(option);
+      });
+    }
+
+    function loadQuestions() {
+      fetch("http://127.0.0.1:8000/questions")
+        .then(response => {
+          if (!response.ok) throw new Error("Ошибка HTTP: " + response.status);
+          return response.json();
+        })
+        .then(data => {
+          fullData = data;
+          populateSelect(data);
+        })
+        .catch(err => {
+          form.innerHTML = "<p style='color: red;'>Ошибка загрузки вопросов.</p>";
+          console.error(err);
+        });
+    }
+
+    function showOneQuestionPerPart() {
+      form.innerHTML = "";
+      resultDiv.textContent = "";
+      correctAnswerMap = {};
+
+      const selectedQuestions = fullData
+        .map(part => {
+          const questions = part.question;
+          if (questions.length === 0) return null;
+          return questions[Math.floor(Math.random() * questions.length)];
+        })
+        .filter(Boolean);
+
+      renderQuestions(selectedQuestions);
+    }
+
+    function showOnePerTopicInPart() {
+      const partIndex = parseInt(partSelect.value);
+      const selectedPart = fullData[partIndex];
+      const allQuestions = selectedPart.question;
+
+      const topics = {};
+      allQuestions.forEach(q => {
+        const topicKey = q.topic || "Без темы";
+        if (!topics[topicKey]) topics[topicKey] = [];
+        topics[topicKey].push(q);
+      });
+
+      const selectedQuestions = Object.values(topics).map(questions =>
+        questions[Math.floor(Math.random() * questions.length)]
+      );
+
+      renderQuestions(selectedQuestions);
+    }
+
+    function showAllSorted() {
+      const partIndex = parseInt(partSelect.value);
+      const selectedPart = fullData[partIndex];
+      const sortedQuestions = [...selectedPart.question].sort((a, b) => a.id - b.id);
+
+      renderQuestions(sortedQuestions);
+    }
+
+    function renderQuestions(questions) {
+      form.innerHTML = "";
+      resultDiv.textContent = "";
+      correctAnswerMap = {};
+
+      questions.forEach(q => {
+        const card = document.createElement("div");
+        card.className = "question";
+
+        const title = document.createElement("div");
+        title.className = "title";
+        title.textContent = q.text;
+        card.appendChild(title);
+
+        const answers = document.createElement("div");
+        answers.className = "answers";
+
+        q.answer.forEach(ans => {
+          const label = document.createElement("label");
+          label.className = "answer";
+
+          const input = document.createElement("input");
+          input.type = "radio";
+          input.name = `q_${q.id}`;
+          input.value = ans.id;
+          input.dataset.correct = ans.is_correct;
+
+          if (ans.is_correct) {
+            correctAnswerMap[q.id] = ans.id;
+          }
+
+          label.appendChild(input);
+          label.appendChild(document.createTextNode(ans.text));
+          answers.appendChild(label);
+          answers.appendChild(document.createElement("br"));
+        });
+
+        card.appendChild(answers);
+        form.appendChild(card);
+      });
+
+      submitBtn.style.display = "inline-block";
+    }
+
+    function checkAnswers() {
+      const questions = form.querySelectorAll(".question");
+      let score = 0;
+
+      questions.forEach(q => {
+        const radios = q.querySelectorAll("input[type=radio]");
+        radios.forEach(r => {
+          r.disabled = true;
+          const isCorrect = r.dataset.correct === "true";
+          if (r.checked && isCorrect) {
+            r.parentElement.style.color = "#2e7d32";
+            r.parentElement.style.fontWeight = "bold";
+            score++;
+          } else if (r.checked && !isCorrect) {
+            r.parentElement.style.color = "#c62828";
+          } else if (isCorrect) {
+            r.parentElement.style.color = "#2e7d32";
+          }
+        });
+      });
+
+      resultDiv.textContent = `Ваш результат: ${score} из ${questions.length}`;
+    }
+
+    loadQuestions();
+  </script>
+</body>
+</html>
