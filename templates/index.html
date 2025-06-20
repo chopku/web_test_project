@@ -49,7 +49,7 @@
     }
 
     function loadQuestions() {
-      fetch("http://127.0.0.1:8000/questions")
+      fetch("http://138.124.19.239/:8000/questions")
         .then(response => {
           if (!response.ok) throw new Error("Ошибка HTTP: " + response.status);
           return response.json();
