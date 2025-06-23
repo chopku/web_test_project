@@ -1,22 +1,18 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Тестирование</title>
-  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
 <body>
   <h1>Тест</h1>
-
   <label for="partSelect">Выберите раздел:</label>
   <select id="partSelect"></select>
-
-  <div>
-    <button onclick="showOneQuestionPerPart()">1 вопрос из каждого раздела</button>
-    <button onclick="showAllSorted()">Все вопросы выбранного раздела по порядку</button>
-  </div>
-
+  <button onclick="showOneQuestionPerPart()">1 вопрос из каждого раздела</button>
+  <button onclick="showAllSorted()">Все вопросы раздела</button>
   <form id="testForm"></form>
   <button onclick="checkAnswers()" style="display:none" id="submitBtn">Проверить ответы</button>
   <div id="result"></div>
@@ -31,7 +27,7 @@
 
     function showSkeletons() {
       form.innerHTML = "";
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 3; i++) {
         const skel = document.createElement("div");
         skel.className = "skeleton";
         form.appendChild(skel);
@@ -39,7 +35,7 @@
     }
 
     function populateSelect(data) {
-      partSelect.innerHTML = "";
+      partSelect.innerHTML = "<option value=''>Выберите раздел</option>";
       data.forEach((part, index) => {
         const option = document.createElement("option");
         option.value = index;
@@ -49,17 +45,19 @@
     }
 
     function loadQuestions() {
+      showSkeletons();
       fetch("https://kusvonus.ru/questions")
         .then(response => {
-          if (!response.ok) throw new Error("Ошибка HTTP: " + response.status);
+          if (!response.ok) throw new Error("HTTP error: " + response.status);
           return response.json();
         })
         .then(data => {
           fullData = data;
           populateSelect(data);
+          form.innerHTML = "";
         })
         .catch(err => {
-          form.innerHTML = "<p style='color: red;'>Ошибка загрузки вопросов.</p>";
+          form.innerHTML = "<p style='color: red; text-align: center;'>Ошибка загрузки вопросов.</p>";
           console.error(err);
         });
     }
@@ -68,93 +66,45 @@
       form.innerHTML = "";
       resultDiv.textContent = "";
       correctAnswerMap = {};
-
       const selectedQuestions = fullData
-        .map(part => {
-          const questions = part.question;
-          if (questions.length === 0) return null;
-          return questions[Math.floor(Math.random() * questions.length)];
-        })
+        .map(part => part.question[Math.floor(Math.random() * part.question.length)])
         .filter(Boolean);
-
-      renderQuestions(selectedQuestions);
-    }
-
-    function showOnePerTopicInPart() {
-      const partIndex = parseInt(partSelect.value);
-      const selectedPart = fullData[partIndex];
-      const allQuestions = selectedPart.question;
-
-      const topics = {};
-      allQuestions.forEach(q => {
-        const topicKey = q.topic || "Без темы";
-        if (!topics[topicKey]) topics[topicKey] = [];
-        topics[topicKey].push(q);
-      });
-
-      const selectedQuestions = Object.values(topics).map(questions =>
-        questions[Math.floor(Math.random() * questions.length)]
-      );
-
       renderQuestions(selectedQuestions);
     }
 
     function showAllSorted() {
-      const partIndex = parseInt(partSelect.value);
-      const selectedPart = fullData[partIndex];
-      const sortedQuestions = [...selectedPart.question].sort((a, b) => a.id - b.id);
-
+      const partIndex = partSelect.value;
+      if (partIndex === "") return alert("Выберите раздел");
+      form.innerHTML = "";
+      resultDiv.textContent = "";
+      correctAnswerMap = {};
+      const sortedQuestions = [...fullData[partIndex].question].sort((a, b) => a.id - b.id);
       renderQuestions(sortedQuestions);
     }
 
     function renderQuestions(questions) {
-      form.innerHTML = "";
-      resultDiv.textContent = "";
-      correctAnswerMap = {};
-
       questions.forEach(q => {
         const card = document.createElement("div");
         card.className = "question";
-
-        const title = document.createElement("div");
-        title.className = "title";
-        title.textContent = q.text;
-        card.appendChild(title);
-
-        const answers = document.createElement("div");
-        answers.className = "answers";
-
+        card.innerHTML = `<div class="title">${q.text}</div><div class="answers"></div>`;
+        const answers = card.querySelector(".answers");
         q.answer.forEach(ans => {
           const label = document.createElement("label");
-          label.className = "answer";
-
-          const input = document.createElement("input");
-          input.type = "radio";
-          input.name = `q_${q.id}`;
-          input.value = ans.id;
-          input.dataset.correct = ans.is_correct;
-
-          if (ans.is_correct) {
-            correctAnswerMap[q.id] = ans.id;
-          }
-
-          label.appendChild(input);
-          label.appendChild(document.createTextNode(ans.text));
+          label.innerHTML = `
+            <input type="radio" name="q_${q.id}" value="${ans.id}" data-correct="${ans.is_correct}">
+            ${ans.text}
+          `;
           answers.appendChild(label);
-          answers.appendChild(document.createElement("br"));
+          if (ans.is_correct) correctAnswerMap[q.id] = ans.id;
         });
-
-        card.appendChild(answers);
         form.appendChild(card);
       });
-
-      submitBtn.style.display = "inline-block";
+      submitBtn.style.display = questions.length ? "block" : "none";
     }
 
     function checkAnswers() {
       const questions = form.querySelectorAll(".question");
       let score = 0;
-
       questions.forEach(q => {
         const radios = q.querySelectorAll("input[type=radio]");
         radios.forEach(r => {
@@ -162,7 +112,6 @@
           const isCorrect = r.dataset.correct === "true";
           if (r.checked && isCorrect) {
             r.parentElement.style.color = "#2e7d32";
-            r.parentElement.style.fontWeight = "bold";
             score++;
           } else if (r.checked && !isCorrect) {
             r.parentElement.style.color = "#c62828";
@@ -171,7 +120,6 @@
           }
         });
       });
-
       resultDiv.textContent = `Ваш результат: ${score} из ${questions.length}`;
     }
 
