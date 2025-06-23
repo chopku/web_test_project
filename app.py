@@ -10,7 +10,7 @@ app = FastAPI()
 app.mount("/css", StaticFiles(directory="css"), name="css")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Лучше указать конкретный адрес в продакшене
+    allow_origins=["https://kusvonus.ru"],  # Лучше указать конкретный адрес в продакшене
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
