@@ -17,7 +17,7 @@ class Question(Base):
     text = Column(String, nullable=False)
     part_id = Column(Integer, ForeignKey("part.id"))
     part = relationship("Part", back_populates="question") 
-    answer = relationship("Answer", back_populates="question", cascade="all, delete-orphan")
+    answer = relationship("Answer", back_populates="question", cascade="all, delete-orphan", order_by="Answer.id")
 
 class Answer(Base):
     __tablename__ = 'answer'
